@@ -82,10 +82,9 @@ function Lobby() {
     <main className="min-h-screen flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md card-soft p-8 animate-fade-in">
         <div className="text-center mb-6">
-          <div className="text-4xl mb-2">{"\n"}</div>
           <h1 className="text-3xl font-bold">Kelime Düellosu</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            {"\u00a0"}Sıra Tabanlı Türkçe Wordle.
+            Sıra Tabanlı Türkçe Wordle.
           </p>
         </div>
 
@@ -136,15 +135,10 @@ function Lobby() {
 
         <Link
           to="/solo"
-          className="block w-full h-12 rounded-xl bg-accent text-accent-foreground font-semibold hover:opacity-90 transition flex items-center justify-center"
+          className="block w-full h-12 rounded-xl bg-accent text-accent-foreground font-semibold hover:opacity-90 transition flex items-center justify-center mb-4"
         >
           Tek Kişilik Oyna 🎯
         </Link>
-
-        {/* --- YENİ EKLENEN BÖLÜM --- */}
-        <div className="flex items-center gap-3 my-5 text-muted-foreground text-xs">
-          <div className="h-px flex-1 bg-border" /> ya da <div className="h-px flex-1 bg-border" />
-        </div>
 
         <Link
           to="/daily"
@@ -152,7 +146,6 @@ function Lobby() {
         >
           📅 Günlük Mod (Günün Kelimesi) 🔥
         </Link>
-        {/* --------------------------- */}
       </div>
     </main>
   );

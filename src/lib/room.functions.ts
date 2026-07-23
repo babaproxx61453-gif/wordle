@@ -1,13 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
-  MAX_GUESSES,
-  WORD_LEN,
-  evaluateGuess,
-  isAllCorrect,
   isTurkishWord,
   isValidWord,
-  serializeResult,
   trUpper,
 } from "./game";
 
@@ -26,9 +21,10 @@ const roomIdSchema = z.string();
 const wordSchema = z.string().trim();
 const optionalPlayerIdSchema = playerIdSchema.optional();
 
-// Express backend sunucumuza istek atacak yardımcı fetch fonksiyonu
 async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const baseUrl = "http://localhost:5000/api";
+  const backendUrl = "https://kelime-backend-pl8m.onrender.com";
+  const baseUrl = `${backendUrl}/api`;
+
   const res = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers: {
@@ -36,6 +32,13 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
       ...(options.headers || {}),
     },
   });
+
+  const contentType = res.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(`Sunucu hatası (${res.status}): API adresi yanlış veya sunucu yanıt vermiyor.`);
+  }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "İşlem başarısız.");
   return data;
@@ -117,6 +120,7 @@ export const submitGuess = createServerFn({ method: "POST" })
         roomId: roomIdSchema,
         playerId: playerIdSchema,
         guess: wordSchema,
+        result: z.string().optional(),
       })
       .parse(d)
   )
@@ -132,6 +136,7 @@ export const submitGuess = createServerFn({ method: "POST" })
         roomId: data.roomId,
         playerId: data.playerId,
         guess,
+        result: data.result || "absent,absent,absent,absent,absent",
       }),
     });
   });
@@ -158,8 +163,8 @@ export const getRoomState = createServerFn({ method: "GET" })
     z.object({ code: codeSchema, playerId: optionalPlayerIdSchema }).parse(d)
   )
   .handler(async ({ data }) => {
-    const code = trUpper(data.code);
+    const code = trUpper(data.code.trim());
     return await apiFetch(
-      `/rooms/state?code=${code}&playerId=${data.playerId || ""}`
+      `/rooms/state?code=${encodeURIComponent(code)}&playerId=${data.playerId || ""}`
     );
   });

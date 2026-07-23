@@ -7,28 +7,34 @@ export const Route = createFileRoute('/profile')({
   component: ProfilePage,
 });
 
-export default function ProfilePage() {
+function ProfilePage() {
   const [user, setUser] = useState<any>(null);
-  const [isLogin, setIsLogin] = useState(true); // true: Giriş, false: Kayıt
+  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-  const [stats, setStats] = useState<PlayerStats>(() => getStats());
+  const [stats, setStats] = useState<PlayerStats>(() => {
+    return typeof window !== 'undefined' 
+      ? getStats() 
+      : { gamesPlayed: 0, gamesWon: 0, currentStreak: 0, maxStreak: 0, lastPlayedDate: '' };
+  });
 
   // Oturum Kontrolü (LocalStorage)
   useEffect(() => {
-    const savedUser = localStorage.getItem('mysql_user');
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        if (parsedUser.username) {
-          localStorage.setItem('user_name', parsedUser.username);
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('mysql_user');
+      if (savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          if (parsedUser.username) {
+            localStorage.setItem('user_name', parsedUser.username);
+          }
+        } catch (e) {
+          localStorage.removeItem('mysql_user');
+          localStorage.removeItem('user_name');
         }
-      } catch (e) {
-        localStorage.removeItem('mysql_user');
-        localStorage.removeItem('user_name');
       }
     }
   }, []);
@@ -43,7 +49,7 @@ export default function ProfilePage() {
     setMsg(null);
 
     try {
-      const res = await fetch('http://localhost:5000/api/register', {
+      const res = await fetch('https://kelime-backend-pl8m.onrender.com/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -71,7 +77,7 @@ export default function ProfilePage() {
     setMsg(null);
 
     try {
-      const res = await fetch('http://localhost:5000/api/login', {
+      const res = await fetch('https://kelime-backend-pl8m.onrender.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -80,13 +86,12 @@ export default function ProfilePage() {
 
       if (!res.ok) throw new Error(data.error || 'Giriş başarısız.');
 
-      // Kullanıcı verisini kaydet ve oturumu aç
       setUser(data.user);
-      localStorage.setItem('mysql_user', JSON.stringify(data.user));
-      
-      // Ana sayfadaki oda kurma alanına ismin otomatik gelmesi için kaydet:
-      if (data.user && data.user.username) {
-        localStorage.setItem('user_name', data.user.username);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mysql_user', JSON.stringify(data.user));
+        if (data.user && data.user.username) {
+          localStorage.setItem('user_name', data.user.username);
+        }
       }
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message || 'Bir hata oluştu.' });
@@ -97,14 +102,15 @@ export default function ProfilePage() {
 
   // Çıkış Yap
   const handleSignOut = () => {
-    localStorage.removeItem('mysql_user');
-    localStorage.removeItem('user_name');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mysql_user');
+      localStorage.removeItem('user_name');
+    }
     setUser(null);
     setUsername('');
     setPassword('');
   };
 
-  // --- 1. GİRİŞ YAPILMIŞSA PROFİL EKRANI ---
   if (user) {
     const displayName = user.username || 'Oyuncu';
     const winRate = stats.gamesPlayed > 0 ? Math.round((stats.gamesWon / stats.gamesPlayed) * 100) : 0;
@@ -112,16 +118,11 @@ export default function ProfilePage() {
     return (
       <main className="min-h-screen flex items-center justify-center px-4 py-10 text-white">
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
-          
-          {/* Avatar */}
           <div className="w-20 h-20 bg-gradient-to-tr from-amber-500 to-indigo-600 rounded-full flex items-center justify-center text-3xl font-black mx-auto mb-4 shadow-lg">
             {displayName[0].toUpperCase()}
           </div>
-
           <h1 className="text-2xl font-bold">{displayName}</h1>
           
-
-          {/* İstatistik Özet Kartları */}
           <div className="grid grid-cols-2 gap-3 my-6">
             <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
               <div className="text-2xl font-extrabold text-amber-400">🔥 {stats.currentStreak}</div>
@@ -152,12 +153,9 @@ export default function ProfilePage() {
     );
   }
 
-  // --- 2. GİRİŞ YAPILMAMIŞSA FORM EKRANI ---
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-10 text-white">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
-        
-        {/* Tab Butonları */}
         <div className="flex bg-slate-950 p-1 rounded-xl mb-6 border border-slate-800">
           <button
             onClick={() => { setIsLogin(true); setMsg(null); }}
@@ -221,7 +219,6 @@ export default function ProfilePage() {
             {loading ? 'İşleniyor...' : isLogin ? 'Giriş Yap 🚀' : 'Hesap Oluştur ✨'}
           </button>
         </form>
-
       </div>
     </main>
   );

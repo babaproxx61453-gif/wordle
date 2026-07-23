@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { getTodayWord, getStats, saveGameResult, PlayerStats } from '../utils/daily';
 import { DailyStatsModal } from '../components/daily-stats-modal';
 
-// Kelime listesi (İleride solo-words.ts veya ortak bir dosyadan import edebilirsin)
 const KELIME_LISTESI = ["ŞAHİN", "ASLAN", "TİLKİ", "SİNEK", "SÖĞÜT", "ÇAYIR", "IRMAK", "DOLAP", "KALEM", "MELEK"];
 
 const MAX_TRIES = 6;
@@ -19,7 +18,7 @@ export const Route = createFileRoute('/daily')({
   component: DailyPage,
 });
 
-export default function DailyPage() {
+function DailyPage() {
   const [targetWord] = useState(() => getTodayWord(KELIME_LISTESI).toUpperCase());
   const [guesses, setGuesses] = useState<string[]>([]);
   const [currentGuess, setCurrentGuess] = useState('');
@@ -28,14 +27,13 @@ export default function DailyPage() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [isWin, setIsWin] = useState(false);
 
-  // Bugün zaten oynandı mı kontrolü
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     if (stats.lastPlayedDate === today) {
       setIsGameOver(true);
       setIsModalOpen(true);
     }
-  }, []);
+  }, [stats.lastPlayedDate]);
 
   const handleFinishGame = useCallback((win: boolean) => {
     const updatedStats = saveGameResult(win);
@@ -75,7 +73,6 @@ export default function DailyPage() {
     }
   }, [currentGuess, guesses, isGameOver, targetWord, handleFinishGame]);
 
-  // Fiziksel Klavye Desteği
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isGameOver) return;
@@ -96,14 +93,12 @@ export default function DailyPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleCharInput, handleDelete, handleSubmit, isGameOver]);
 
-  // Harf Renk Durumunu Hesaplama (Yeşil, Sarı, Gri)
   const getLetterStatus = (letter: string, index: number, word: string) => {
-    if (word[index] === letter) return 'bg-emerald-600 border-emerald-500 text-white';
+    if (word[index] === targetWord[index]) return 'bg-emerald-600 border-emerald-500 text-white';
     if (targetWord.includes(letter)) return 'bg-amber-500 border-amber-400 text-white';
     return 'bg-slate-700 border-slate-600 text-slate-300';
   };
 
-  // Klavye Tuş Renkleri
   const getKeyStatus = (key: string) => {
     let status = 'bg-slate-800 text-white hover:bg-slate-700';
     for (const g of guesses) {
@@ -121,15 +116,13 @@ export default function DailyPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-between p-4 selection:bg-none">
       
-      {/* Üst Bilgi */}
-<div className="flex flex-col items-center mt-2 mb-4">
-  <h1 className="text-3xl font-extrabold flex items-center gap-2">
-    📅 Günlük Mod
-  </h1>
-  <p className="text-xs text-slate-400 mt-1">Her gün tek hakkın var!</p>
-</div>
+      <div className="flex flex-col items-center mt-2 mb-4">
+        <h1 className="text-3xl font-extrabold flex items-center gap-2">
+          📅 Günlük Mod
+        </h1>
+        <p className="text-xs text-slate-400 mt-1">Her gün tek hakkın var!</p>
+      </div>
 
-      {/* Oyun Tahtası (Grid) */}
       <div className="grid grid-rows-6 gap-2 my-auto">
         {Array.from({ length: MAX_TRIES }).map((_, rowIndex) => {
           const guess = guesses[rowIndex];
@@ -163,7 +156,6 @@ export default function DailyPage() {
         })}
       </div>
 
-      {/* Ekran Klavyesi */}
       <div className="w-full max-w-lg mb-2 flex flex-col gap-1.5 px-1">
         {KEYBOARD_ROWS.map((row, rowIndex) => (
           <div key={rowIndex} className="flex justify-center gap-1">
@@ -189,7 +181,6 @@ export default function DailyPage() {
         ))}
       </div>
 
-      {/* İstatistik & Seri Pop-Up Modal */}
       <DailyStatsModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 

@@ -21,7 +21,6 @@ import {
   type LetterResult,
 } from "@/lib/game";
 
-// Soket bağlantımızı içe aktarıyoruz
 import { socket } from "@/lib/socket";
 
 export const Route = createFileRoute("/room/$code")({
@@ -54,7 +53,12 @@ type Guess = {
 function RoomPage() {
   const { code } = Route.useParams();
   const navigate = useNavigate();
-  const pid = typeof window !== "undefined" ? getPlayerId() : "";
+  
+  const [pid, setPid] = useState("");
+  useEffect(() => {
+    setPid(getPlayerId());
+  }, []);
+
   const fetchState = useServerFn(getRoomState);
 
   const [room, setRoom] = useState<Room | null>(null);
@@ -62,7 +66,6 @@ function RoomPage() {
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Veriyi çekme fonksiyonunu useCallback ile sarıyoruz
   const fetchCurrentState = useCallback(async () => {
     try {
       const res = await fetchState({ data: { code, playerId: pid || undefined } });
@@ -77,17 +80,12 @@ function RoomPage() {
     }
   }, [code, pid, fetchState]);
 
-  // SOKET VE İLK YÜKLEME YÖNETİMİ
   useEffect(() => {
     let mounted = true;
 
-    // Sayfa açıldığında veriyi bir kez çek
     void fetchCurrentState();
-
-    // 1. İlgili odanın soket kanalına katıl
     socket.emit("join_room_socket", code);
 
-    // 2. Odada bir güncelleme olduğunda verileri yeniden çek
     const handleRefresh = () => {
       if (mounted) fetchCurrentState();
     };
@@ -197,8 +195,7 @@ function SettingView({ room, meNum, pid }: { room: Room; meNum: 0 | 1 | 2; pid: 
     if (meNum === 0) return setErr("Bu odada oyuncu değilsin.");
     setSaving(true);
     try {
-      await submitWord({ data: { roomId: room.id, playerId: pid, word: w } });
-      // SOKET BİLDİRİMİ: Kelime seçildi
+      await submitWord({ data: { roomId: room.code, playerId: pid, word: w } });
       socket.emit("room_updated", room.code);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Kaydedilemedi.");
@@ -287,8 +284,7 @@ function PlayView({
     setGuessErr(null);
     setSubmitting(true);
     try {
-      await submitGuess({ data: { roomId: room.id, playerId: pid, guess } });
-      // SOKET BİLDİRİMİ: Tahmin yapıldı
+      await submitGuess({ data: { roomId: room.code, playerId: pid, guess: guess } });
       socket.emit("room_updated", room.code);
       setFlipRow(myGuesses.length);
       setCurrent("");
@@ -297,7 +293,7 @@ function PlayView({
     } finally {
       setSubmitting(false);
     }
-  }, [current, meNum, room.id, pid, submitGuess, myGuesses.length, room.code]);
+  }, [current, meNum, room.code, pid, submitGuess, myGuesses.length]);
 
   const onKey = useCallback((k: string) => {
     if (!isMyTurn || submitting || finished) return;
@@ -326,11 +322,11 @@ function PlayView({
   const keyState = useMemo(() => {
     const state: Record<string, LetterResult> = {};
     for (const g of myGuesses) {
-      const r = parseResult(g.result);
+      const r = typeof g.result === "string" ? g.result.split(",") : parseResult(g.result);
       const ls = letters(g.guess);
       ls.forEach((ch, i) => {
         const prev = state[ch];
-        const cur = r[i];
+        const cur = r[i] as LetterResult;
         if (prev === "correct") return;
         if (prev === "present" && cur === "absent") return;
         state[ch] = cur;
@@ -409,14 +405,20 @@ function Board({
         {gridRows.map((rIdx) => {
           const g = rows[rIdx];
           const chars = g ? letters(g.guess) : rIdx === rows.length ? letters(current) : [];
-          const result = g ? parseResult(g.result) : null;
+          
+          // Sonucu güvenli bir şekilde diziye dönüştürüyoruz (Backend'den virgüllü string gelir)
+          const result = g 
+            ? (typeof g.result === "string" ? g.result.split(",") : parseResult(g.result)) 
+            : null;
+
           return (
             <div key={rIdx} className="flex gap-2">
               {Array.from({ length: WORD_LEN }, (_, i) => {
                 const ch = chars[i] ?? "";
                 let cls = "tile";
                 if (result) {
-                  cls += ` tile-${result[i]} ${flipRow === rIdx ? "tile-flip" : ""}`;
+                  const status = result[i]; // "correct", "present", "absent"
+                  cls += ` tile-${status} ${flipRow === rIdx ? "tile-flip" : ""}`;
                 } else if (ch) {
                   cls += " tile-filled";
                 }
@@ -470,7 +472,6 @@ function Keyboard({
   );
 }
 
-
 function EndCard({ room, meNum, pid, onExit }: { room: Room; meNum: 0 | 1 | 2; pid: string; onExit: () => void }) {
   const restart = useServerFn(restartRoomFn);
   const reveal = useServerFn(getRevealedWords);
@@ -481,20 +482,19 @@ function EndCard({ room, meNum, pid, onExit }: { room: Room; meNum: 0 | 1 | 2; p
     let mounted = true;
     (async () => {
       try {
-        const r = await reveal({ data: { roomId: room.id } });
+        const r = await reveal({ data: { roomId: room.code } });
         if (!mounted) return;
         setP1Word(r.player1_word ?? "?????");
         setP2Word(r.player2_word ?? "?????");
       } catch {}
     })();
     return () => { mounted = false; };
-  }, [room.id, reveal]);
+  }, [room.code, reveal]);
 
   async function doRestart() {
     if (meNum === 0) return;
     try {
-      await restart({ data: { roomId: room.id, playerId: pid } });
-      // SOKET BİLDİRİMİ: Oyun yeniden başlatıldı
+      await restart({ data: { roomId: room.code, playerId: pid } });
       socket.emit("room_updated", room.code);
     } catch {}
   }

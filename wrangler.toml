@@ -1,0 +1,10 @@
+name = "kiral-oyun"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+main = "./.output/server/index.mjs"
+
+[assets]
+directory = "./.output/public"
+binding = "ASSETS"
+[vars]
+VITE_BACKEND_URL = "https://kelime-backend-pl8m.onrender.com"
